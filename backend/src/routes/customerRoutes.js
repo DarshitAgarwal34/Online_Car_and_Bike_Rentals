@@ -1,11 +1,11 @@
 // File: src/routes/customerRoutes.js
 const express = require('express');
 const router = express.Router();
-
+const upload = require("./../middlewares/upload")
 const customerController = require('../controllers/customerController');
 
 // POST /api/customers/signup
-router.post('/signup', customerController.signup);
+router.post('/signup', upload.single('profile_picture'), customerController.signup);
 
 // POST /api/customers/login
 router.post('/login', customerController.login);
