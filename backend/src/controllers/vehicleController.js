@@ -122,17 +122,26 @@ async function setAvailabilityHandler(req, res) {
   }
 }
 
-// GET /api/vehicles
-// Returns an array of vehicle rows (optionally could support query filters)
+// GET /api/vehicles -> uses model.getAllVehicles(filters)
+
 async function getAllVehiclesHandler(req, res) {
   try {
-    // You can read query params here if needed: req.query.city, req.query.type, etc.
-    const list = await vehicleModel.getAllVehicles();
-    // Return the array directly so frontend/apiFetch receives an array
-    return res.json(list);
+    // Pull query params (city, type, available)
+    const { city, type, available } = req.query;
+
+    const filters = {};
+    if (city) filters.city = city;
+    if (type) filters.type = type;
+    if (typeof available !== 'undefined') {
+      // allow ?available=1 or ?available=true
+      filters.available = available === '1' || available === 'true';
+    }
+
+    const list = await vehicleModel.getAllVehicles(filters);
+    return res.json(list); // returns array
   } catch (err) {
     console.error('getAllVehicles error', err);
-    return res.status(500).json({ error: 'internal_server_error' });
+    return res.status(500).json({ error: 'internal_server_error', detail: err.message });
   }
 }
 

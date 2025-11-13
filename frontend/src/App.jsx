@@ -14,6 +14,7 @@ import ProtectedRoute from './auth/ProtectedRoute';
 import CustomerProfile from './pages/CustomerProfile';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import Vehicles from './pages/Vehicles';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="browse" element={<Browse />} />
+          <Route path="vehicles" element={<Vehicles />} />
 
           {/* Auth routes */}
           <Route path="login" element={<Login />} />

@@ -205,9 +205,41 @@ async function removeVehiclePhoto(photoId) {
 // returns array of vehicles (simple SELECT)
 // place this function in backend/src/models/vehicleModel.js
 async function getAllVehicles(filters = {}) {
-  // Basic implementation: ignore filters for now, return all vehicles
-  // You can extend filters (city/type/pickup) later.
-  const [rows] = await pool.query('SELECT * FROM vehicles ORDER BY created_at DESC');
+  // base select - include owner.city as owner_city so frontend can display/filter
+  let sql = `
+    SELECT v.*, o.name AS owner_name, o.city AS owner_city
+    FROM vehicles v
+    LEFT JOIN owners o ON o.id = v.owner_id
+  `;
+
+  const where = [];
+  const params = [];
+
+  // city filter (matches owner.city)
+  if (filters.city) {
+    where.push('LOWER(o.city) = LOWER(?)');
+    params.push(String(filters.city).trim());
+  }
+
+  // vehicle type filter: accept 'car', 'bike', 'scooter', etc.
+  if (filters.type && filters.type !== 'all') {
+    where.push('LOWER(v.vehicle_type) = LOWER(?)');
+    params.push(String(filters.type).trim());
+  }
+
+  // availability filter
+  if (typeof filters.available !== 'undefined') {
+    where.push('v.is_available = ?');
+    params.push(filters.available ? 1 : 0);
+  }
+
+  if (where.length) {
+    sql += ' WHERE ' + where.join(' AND ');
+  }
+
+  sql += ' ORDER BY v.created_at DESC';
+
+  const [rows] = await pool.query(sql, params);
   return rows;
 }
 
