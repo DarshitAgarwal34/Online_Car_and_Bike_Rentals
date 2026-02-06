@@ -165,6 +165,45 @@ async function updateCustomerAadhar(customerId, newAadharPlain) {
   }
 }
 
+async function listAllCustomers() {
+  const [rows] = await pool.query(`
+    SELECT
+      id,
+      name,
+      email,
+      phone,
+      dob,
+      gender,
+      license_number,
+      aadhar_cipher,
+      is_verified,
+      kyc_submitted,
+      kyc_verified,
+      created_at
+    FROM customers
+    ORDER BY created_at DESC
+  `);
+  return (rows || []).map((row) => {
+    let aadharPlain = null;
+    try {
+      if (row.aadhar_cipher && Buffer.isBuffer(row.aadhar_cipher)) {
+        aadharPlain = decryptAadhar(row.aadhar_cipher);
+      }
+    } catch {
+      aadharPlain = null;
+    }
+    const clean = { ...row, aadhar_plain: aadharPlain };
+    delete clean.aadhar_cipher;
+    return clean;
+  });
+}
+
+async function countCustomers() {
+  const [[row]] = await pool.query(`SELECT COUNT(*) AS total FROM customers`);
+  return row.total;
+}
+
+
 // Exports
 module.exports = {
   encryptAadhar,
@@ -172,7 +211,9 @@ module.exports = {
   createCustomer,
   getCustomerByEmail,
   getCustomerById,
-  updateCustomerAadhar
+  updateCustomerAadhar,
+  listAllCustomers,
+  countCustomers
 };
 
 // End of file

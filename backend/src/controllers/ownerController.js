@@ -45,7 +45,7 @@ async function comparePassword(plain, hash) {
 async function signup(req, res) {
   try {
     // Pull fields from request body (works for JSON and multipart/form-data)
-    const { name, email, password, phone, dob, gender } = req.body || {};
+    const { name, email, password, phone, dob, gender, city } = req.body || {};
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -78,10 +78,10 @@ async function signup(req, res) {
     // Insert owner into DB using parameterized query to avoid injection
     const insertSql = `
       INSERT INTO owners
-        (name, email, password, phone, dob, gender, profile_picture, is_verified, rating, number_of_listings, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, 0, NOW(), NOW())
+        (name, email, password, phone, dob, gender, city, profile_picture, is_verified, rating, number_of_listings, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 0, NOW(), NOW())
     `;
-    const params = [name, email, hashed, phone || null, dob || null, gender || null, profile_picture];
+    const params = [name, email, hashed, phone || null, dob || null, gender || null, city || null, profile_picture];
 
     const [result] = await pool.query(insertSql, params);
 
@@ -93,6 +93,7 @@ async function signup(req, res) {
       phone: phone || null,
       dob: dob || null,
       gender: gender || null,
+      city: city || null,
       profile_picture: profile_picture || null,
       role: 'owner'
     };
@@ -262,7 +263,7 @@ async function getVehicles(req, res) {
     const onlyAvailable = req.query.available === '1' || req.query.available === 'true';
 
     // Basic SQL: select main vehicle columns; ensure column names match your DB
-    let sql = `SELECT id, owner_id, vehicle_type, make, model, year, registration_number, color, seating_capacity, daily_rate, is_available, vehicle_condition, created_at FROM vehicles WHERE owner_id = ?`;
+    let sql = `SELECT id, owner_id, vehicle_type, make, model, year, registration_number, color, seating_capacity, daily_rate, photo_url, is_available, vehicle_condition, created_at FROM vehicles WHERE owner_id = ?`;
     const params = [ownerId];
 
     if (onlyAvailable) {
@@ -273,6 +274,12 @@ async function getVehicles(req, res) {
 
     // Run query
     const [rows] = await pool.query(sql, params);
+
+    // Keep listing count in sync
+    await pool.query(
+      'UPDATE owners SET number_of_listings = ? WHERE id = ?',
+      [rows ? rows.length : 0, ownerId]
+    );
 
     // Return list of vehicles
     return res.json({ vehicles: rows || [] });
@@ -309,6 +316,21 @@ async function getStats(req, res) {
   }
 }
 
+/**
+ * Get bookings for an owner
+ * - Placeholder until bookings table exists
+ */
+async function getBookings(req, res) {
+  try {
+    const ownerId = Number(req.params.ownerId || (req.user && req.user.id));
+    if (!ownerId) return res.status(400).json({ error: 'invalid_owner_id' });
+    return res.json({ bookings: [] });
+  } catch (err) {
+    console.error('owner getBookings error:', err);
+    return res.status(500).json({ error: 'internal_server_error', detail: err.message });
+  }
+}
+
 // Export controller functions
 module.exports = {
   signup,
@@ -316,5 +338,6 @@ module.exports = {
   getProfile,
   updateProfile,
   getVehicles,
-  getStats
+  getStats,
+  getBookings
 };

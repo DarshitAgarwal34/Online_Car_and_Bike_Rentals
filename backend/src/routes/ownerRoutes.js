@@ -10,5 +10,6 @@ router.get('/:ownerId', ownerController.getProfile);
 router.put('/:ownerId', upload.single('profile_picture'), ownerController.updateProfile);
 router.get('/:ownerId/vehicles', ownerController.getVehicles);
 router.get('/:ownerId/stats', ownerController.getStats);
+router.get('/:ownerId/bookings', ownerController.getBookings);
 
 module.exports = router;

@@ -3,14 +3,17 @@
 // consistent CTAs (btn-rr), sticky header with safe spacing.
 
 import React, { useState } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import Logo from './Logo';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const role = user?.role || 'guest';
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminArea = location.pathname.startsWith('/admin');
 
   function handleLogout() {
     logout();
@@ -26,28 +29,49 @@ export default function Layout() {
   ];
 
   const CUSTOMER_LINKS = [
-    { to: '/customer/dashboard', label: 'BookNow' },
+    { to: '/customer/book', label: 'BookNow' },
     { to: '/kyc', label: 'KYC' },
-    { to: '/history', label: 'History' }
+    { to: '/history', label: 'History' },
+    { to: '/customer/help', label: 'NeedHelp' }
   ];
 
   const OWNER_LINKS = [
     { to: '/owner/list-vehicle', label: 'List Vehicle' },
     { to: '/owner/vehicles', label: 'My Vehicles' },
     { to: '/owner/bookings', label: 'Bookings' },
-    { to: '/owner/analytics', label: 'Analytics' }
+    { to: '/owner/analytics', label: 'Analytics' },
+    { to: '/owner/help', label: 'NeedHelp' }
   ];
 
   const ADMIN_LINKS = [
     { to: '/admin/customers', label: 'Customers' },
     { to: '/admin/owners', label: 'Owners' },
-    { to: '/admin/dashboard', label: 'Dashboard' }
+    { to: '/admin/complaints', label: 'Complaints' },
+    { to: '/admin/help', label: 'NeedHelp' },
+    { to: '/admin/', label: 'Dashboard' }
   ];
 
   let links = GUEST_LINKS;
   if (role === 'customer') links = CUSTOMER_LINKS;
   if (role === 'owner') links = OWNER_LINKS;
   if (role === 'admin') links = ADMIN_LINKS;
+
+  const homeLink =
+    role === 'customer'
+      ? '/customer/dashboard'
+      : role === 'owner'
+      ? '/owner'
+      : role === 'admin'
+      ? '/admin'
+      : '/';
+
+  if (isAdminArea) {
+    return (
+      <div className="min-h-screen bg-rr-gray">
+        <Outlet />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-rr-gray">
@@ -57,10 +81,8 @@ export default function Layout() {
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3 min-w-0">
-              <Link to="/" className="flex items-center gap-3 shrink-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rr-orange rounded-md flex items-center justify-center text-white font-bold shadow-xl ring-2 ring-white/40">
-                  RR
-                </div>
+              <Link to={homeLink} className="flex items-center gap-3 shrink-0">
+                <Logo size={42} />
                 <div className="hidden sm:block min-w-0">
                   <div className="text-lg font-extrabold text-rr-black truncate">RentRoam</div>
                   <div className="text-xs text-gray-500 truncate">Rent cars & bikes nearby</div>
@@ -162,7 +184,7 @@ export default function Layout() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-rr-orange rounded-md flex items-center justify-center text-white font-bold">RR</div>
+                <Logo size={40} showText={false} />
                 <div>
                   <h4 className="font-bold text-lg text-rr-black">RentRoam</h4>
                   <p className="text-sm text-gray-500">Rent cars & bikes near you</p>
@@ -184,9 +206,9 @@ export default function Layout() {
             <div>
               <h5 className="font-semibold mb-2">Contact</h5>
               <div className="text-sm text-gray-600 space-y-1">
-                <div>Phone: <a href="tel:9057216634" className="text-gray-800 hover:text-rr-orange">9057216634</a></div>
+                <div>Phone: <a href="tel:2345678901" className="text-gray-800 hover:text-rr-orange">2345678901</a></div>
                 <div>Email: <a href="mailto:rentroam@gmail.com" className="text-gray-800 hover:text-rr-orange">rentroam@gmail.com</a></div>
-                <div>Location: <span className="text-gray-800">565, Block C, Boys Hostel, IIIT Kota, Ranpur, Kota, 325003</span></div>
+                <div>Location: <span className="text-gray-800">IIIT Kota, Ranpur, Kota, Rajasthan, 325003</span></div>
               </div>
             </div>
           </div>

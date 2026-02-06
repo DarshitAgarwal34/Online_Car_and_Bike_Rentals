@@ -243,14 +243,38 @@ async function getAllVehicles(filters = {}) {
   return rows;
 }
 
+async function countVehicles() {
+  const [[row]] = await pool.query(`SELECT COUNT(*) AS total FROM vehicles`);
+  return row.total;
+}
+
+async function deleteVehicle(id) {
+  const [result] = await pool.query('DELETE FROM vehicles WHERE id = ?', [id]);
+  return result.affectedRows > 0;
+}
+
+async function syncOwnerListingCount(ownerId) {
+  if (!ownerId) return;
+  const sql = `
+    UPDATE owners
+    SET number_of_listings = (SELECT COUNT(*) FROM vehicles WHERE owner_id = ?)
+    WHERE id = ?
+  `;
+  await pool.query(sql, [ownerId, ownerId]);
+}
+
+
 module.exports = {
   createVehicle,
   createVehiclesBulk,
   getVehicleById,
   getVehiclesByOwner,
   updateVehicle,
+  deleteVehicle,
   setAvailability,
   addVehiclePhoto,
   removeVehiclePhoto,
-  getAllVehicles
+  getAllVehicles,
+  countVehicles,
+  syncOwnerListingCount
 };

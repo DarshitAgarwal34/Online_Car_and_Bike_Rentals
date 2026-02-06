@@ -1,20 +1,24 @@
-// src/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
-const adminController = require('../controllers/adminController');
-const { authenticateJWT } = require('../middlewares/authMiddleware');
-const { requireRole } = require('../middlewares/requireRole');
+const auth = require('../middlewares/authMiddleware');
 
-// Public: create first admin or let signup be protected in production
+const adminController = require('../controllers/adminController');
+const adminManage = require('../controllers/adminManageController');
+
+// auth
+router.post('/login', adminController.login);
 router.post('/signup', adminController.signup);
 
-// Public login endpoint for admins
-router.post('/login', adminController.login);
+// protected admin-only
+router.get('/customers', auth.authenticateJWT, adminManage.listCustomers);
+router.get('/customers/:id', auth.authenticateJWT, adminManage.getCustomerById);
+router.get('/owners', auth.authenticateJWT, adminManage.listOwners);
+router.get('/stats', auth.authenticateJWT, adminManage.getStats);
+router.patch('/customers/:id', auth.authenticateJWT, adminManage.updateCustomer);
+router.delete('/customers/:id', auth.authenticateJWT, adminManage.deleteCustomer);
+router.patch('/owners/:id', auth.authenticateJWT, adminManage.updateOwner);
+router.delete('/owners/:id', auth.authenticateJWT, adminManage.deleteOwner);
 
-// Protected admin endpoints (require JWT + admin role)
-router.get('/', authenticateJWT, requireRole('admin'), adminController.listAdminsHandler);
-router.get('/:id', authenticateJWT, requireRole('admin'), adminController.getAdminProfile);
-router.patch('/:id/activate', authenticateJWT, requireRole('admin'), adminController.setActiveHandler);
-router.patch('/:id', authenticateJWT, requireRole('admin'), adminController.updateAdminHandler);
+
 
 module.exports = router;

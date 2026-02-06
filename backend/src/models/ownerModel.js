@@ -87,10 +87,36 @@ async function updateOwnerProfile(ownerId, fields) {
   }
 }
 
+async function listAllOwners() {
+  const [rows] = await pool.query(`
+    SELECT
+      id,
+      name,
+      email,
+      phone,
+      dob,
+      gender,
+      is_verified,
+      number_of_listings,
+      created_at
+    FROM owners
+    ORDER BY created_at DESC
+  `);
+  return rows;
+}
+
+async function countOwners() {
+  const [[row]] = await pool.query(`SELECT COUNT(*) AS total FROM owners`);
+  return row.total;
+}
+
+
 // Explicitly export the functions
 module.exports = {
   createOwner,
   getOwnerByEmail,
   getOwnerById,
-  updateOwnerProfile
+  updateOwnerProfile,
+  listAllOwners,
+  countOwners
 };

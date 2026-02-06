@@ -9,7 +9,11 @@ const vehicleModel = require('../models/vehicleModel');
  */
 async function createVehicleHandler(req, res) {
   try {
-    const data = req.body;
+    const data = req.body || {};
+
+    if (req.file && req.file.filename) {
+      data.photo_url = `/uploads/${req.file.filename}`;
+    }
 
     // If client sent an array -> bulk insert
     if (Array.isArray(data)) {
@@ -17,6 +21,8 @@ async function createVehicleHandler(req, res) {
 
       try {
         const result = await vehicleModel.createVehiclesBulk(data);
+        const uniqueOwners = Array.from(new Set(data.map((v) => Number(v.owner_id)).filter(Boolean)));
+        await Promise.all(uniqueOwners.map((oid) => vehicleModel.syncOwnerListingCount(oid)));
         return res.status(201).json({
           message: 'vehicles_bulk_created',
           insertedCount: result.insertedCount,
@@ -29,11 +35,30 @@ async function createVehicleHandler(req, res) {
     }
 
     // otherwise single object handling
-    if (!data || !data.owner_id || !data.vehicle_type) {
-      return res.status(400).json({ error: 'owner_id and vehicle_type required' });
+    const required = [
+      'owner_id',
+      'vehicle_type',
+      'make',
+      'model',
+      'year',
+      'registration_number',
+      'color',
+      'seating_capacity',
+      'vehicle_condition',
+      'daily_rate'
+    ];
+    const missing = required.filter((k) => !data[k]);
+    const hasPhoto = !!(data.photo_url || data.photo);
+    if (missing.length || !hasPhoto) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        missing,
+        message: 'Required fields are missing or photo is not provided'
+      });
     }
 
     const result = await vehicleModel.createVehicle(data);
+    await vehicleModel.syncOwnerListingCount(Number(data.owner_id));
     return res.status(201).json({ id: result.id, message: 'vehicle_created' });
   } catch (err) {
     console.error('createVehicle error', err);
@@ -82,6 +107,21 @@ async function updateVehicleHandler(req, res) {
   }
 }
 
+async function deleteVehicleHandler(req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    const vehicle = await vehicleModel.getVehicleById(id);
+    if (!vehicle) return res.status(404).json({ error: 'not_found' });
+    const ok = await vehicleModel.deleteVehicle(id);
+    if (!ok) return res.status(404).json({ error: 'not_found' });
+    await vehicleModel.syncOwnerListingCount(Number(vehicle.owner_id));
+    return res.json({ message: 'deleted' });
+  } catch (err) {
+    console.error('deleteVehicle error', err);
+    return res.status(500).json({ error: 'internal_server_error' });
+  }
+}
 async function addPhotoHandler(req, res) {
   try {
     const vehicleId = Number(req.params.id);
@@ -150,6 +190,7 @@ module.exports = {
   getVehicleHandler,
   listVehiclesByOwnerHandler,
   updateVehicleHandler,
+  deleteVehicleHandler,
   addPhotoHandler,
   removePhotoHandler,
   setAvailabilityHandler,

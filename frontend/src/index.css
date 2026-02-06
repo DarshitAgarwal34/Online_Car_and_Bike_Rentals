@@ -1,15 +1,5 @@
 @import "tailwindcss";
+@import "./theme.css";
 
-:root {
-  --rr-orange: #FF6A00;
-  --rr-orange-dark: #CC5500;
-  --rr-orange-light: #FFA04D;
-}
-
-/* quick fallback utility — use alongside Tailwind classes */
-.btn-rr {
-  background-color: var(--rr-orange) !important;
-  color: #ffffff !important;
-  box-shadow: 0 8px 20px rgba(255,106,0,0.12);
-  border-radius: 8px;
-}
+html, body, #root { height: 100%; }
+body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background-color: #fff; }

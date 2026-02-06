@@ -1,0 +1,46 @@
+/* src/theme.css
+   RentRoam design tokens (Tailwind v4-friendly)
+   - Define all theme colors as CSS variables
+   - Provide .btn-rr helper using @apply for convenience
+*/
+
+:root {
+  /* Primary brand */
+  --rr-orange: #FF6A00;
+  --rr-orange-light: #FFA04D;
+  --rr-orange-dark: #CC5500;
+
+  /* Neutrals */
+  --rr-black: #0B0B0D;
+  --rr-black-light: #1A1A1D;
+  --rr-gray: #F5F6F7;
+  --rr-gray-dark: #3B3B3B;
+
+  --rr-white: #FFFFFF;
+
+  /* optional shadow / radius tokens (you can use them with inline styles) */
+  --rr-soft-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  --rr-radius-xl: 12px;
+}
+
+/* Reusable CTA */
+.btn-rr {
+  /* Uses Tailwind @apply for spacing/typography but color via CSS variable */
+  @apply px-4 py-2 rounded-lg font-semibold text-white transition;
+  background-color: var(--rr-orange);
+}
+.btn-rr:hover {
+  background-color: var(--rr-orange-dark);
+}
+
+/* small helper for text color */
+.text-rr-orange { color: var(--rr-orange); }
+.text-rr-black  { color: var(--rr-black); }
+.bg-rr-gray     { background-color: var(--rr-gray); }
+
+/* optional: hero helper using uploaded local image (example) */
+.hero-local {
+  background-image: url('/Logo.png');
+  background-position: center;
+  background-size: cover;
+}

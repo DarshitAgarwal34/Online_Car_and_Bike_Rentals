@@ -200,7 +200,7 @@ async function getProfile(req, res) {
     if (!id) return res.status(400).json({ error: 'invalid_id' });
 
     // Query DB
-    const [rows] = await pool.query('SELECT id, name, email, phone, dob, gender, profile_picture, is_verified, wallet_balance, created_at FROM customers WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await pool.query('SELECT id, name, email, phone, dob, gender, profile_picture, is_verified, kyc_submitted, kyc_verified, wallet_balance, created_at FROM customers WHERE id = ? LIMIT 1', [id]);
     if (!rows || rows.length === 0) return res.status(404).json({ error: 'not_found' });
 
     // Return the customer row
@@ -213,50 +213,93 @@ async function getProfile(req, res) {
 
 // Controller: uploadKyc - attach aadhar/license records for a customer
 // Expects req.file(s) handled by multer (e.g., fields: aadhar_file, license_file) OR aadhar_number, license_number in body
+// ========================= KYC Upload ===========================
 async function uploadKyc(req, res) {
   try {
-    // Use authenticated user id if available, otherwise require customer_id in body
-    const customerId = Number(req.user && req.user.id) || Number(req.body.customer_id);
-    if (!customerId) return res.status(400).json({ error: 'missing_customer_id' });
+    const customerId = Number(req.params.id);
+    if (!customerId) return res.status(400).json({ error: "Invalid customer id" });
 
-    // Extract numbers and files
-    const { aadhar_number, license_number } = req.body || {};
-    const aadharFile = req.files && req.files['aadhar_file'] ? req.files['aadhar_file'][0] : null;
-    const licenseFile = req.files && req.files['license_file'] ? req.files['license_file'][0] : null;
+    const { aadhar_number, license_number } = req.body;
 
-    // Insert KYC documents into kyc_docs table (or customers table fields depending on your schema)
-    // Here we insert to kyc_docs for normalization (adjust if your DB differs)
-    const inserts = [];
-
-    if (aadhar_number || aadharFile) {
-      const docUrl = aadharFile ? `/uploads/${aadharFile.filename}` : null;
-      inserts.push(['aadhar', aadhar_number || null, docUrl, customerId]);
+    if (!aadhar_number || !license_number) {
+      return res.status(400).json({ error: "Aadhar and License numbers required" });
     }
 
-    if (license_number || licenseFile) {
-      const docUrl = licenseFile ? `/uploads/${licenseFile.filename}` : null;
-      inserts.push(['driving_license', license_number || null, docUrl, customerId]);
+    const aadharFile = req.files?.aadhar_file?.[0];
+    const licenseFile = req.files?.license_file?.[0];
+
+    if (!aadharFile || !licenseFile) {
+      return res.status(400).json({ error: "Both Aadhar and License photos required" });
     }
 
-    // If nothing provided, return bad request
-    if (inserts.length === 0) {
-      return res.status(400).json({ error: 'nothing_to_upload', message: 'Provide aadhar/license number or files' });
-    }
+    // file paths (public/uploads/xxxx.jpg)
+    const aadharPath = `/uploads/${aadharFile.filename}`;
+    const licensePath = `/uploads/${licenseFile.filename}`;
 
-    // Insert each doc row
-    for (const it of inserts) {
-      const [doc_type, doc_number, doc_url, cId] = it;
-      await pool.query(
-        `INSERT INTO kyc_docs (customer_id, doc_type, doc_number, doc_url, verified, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 0, NOW(), NOW())`,
-        [cId, doc_type, doc_number, doc_url]
-      );
-    }
+    const q = `
+      INSERT INTO kyc 
+      (customer_id, aadhar_number, aadhar_photo, license_number, license_photo, status, admin_verified) 
+      VALUES (?, ?, ?, ?, ?, 'submitted', 0)
+      ON DUPLICATE KEY UPDATE
+        aadhar_number = VALUES(aadhar_number),
+        aadhar_photo = VALUES(aadhar_photo),
+        license_number = VALUES(license_number),
+        license_photo = VALUES(license_photo),
+        status = 'submitted',
+        admin_verified = 0
+    `;
 
-    // Optionally mark customer as pending verification; leave is_verified false
-    return res.json({ message: 'kyc_uploaded' });
+    await pool.execute(q, [
+      customerId,
+      aadhar_number,
+      aadharPath,
+      license_number,
+      licensePath
+    ]);
+
+    // One-step customer verification
+    await pool.execute(`UPDATE customers SET kyc_submitted = 1, kyc_verified = 0 WHERE id = ?`, [customerId]);
+
+    res.json({
+      message: "KYC submitted",
+      status: "submitted",
+      aadhar_photo: aadharPath,
+      license_photo: licensePath
+    });
+
   } catch (err) {
-    console.error('uploadKyc error:', err);
+    console.error("uploadKyc error:", err);
+    res.status(500).json({ error: "internal_server_error", detail: err.message });
+  }
+}
+
+// Get KYC status & minimal info
+async function getKycStatus(req, res) {
+  try {
+    const customerId = Number(req.params.id);
+    if (!customerId) return res.status(400).json({ error: 'invalid customer id' });
+
+    const [rows] = await pool.execute('SELECT * FROM kyc WHERE customer_id = ? LIMIT 1', [customerId]);
+    const kyc = rows && rows[0] ? rows[0] : null;
+
+    if (!kyc) {
+      return res.json({ status: 'not_submitted', kyc: null });
+    }
+
+    // normalize response
+    const response = {
+      status: kyc.status || (kyc.admin_verified ? 'approved' : 'submitted'),
+      admin_verified: !!kyc.admin_verified,
+      aadhar_number: kyc.aadhar_number || null,
+      aadhar_url: kyc.aadhar_photo || null,
+      license_number: kyc.license_number || null,
+      license_url: kyc.license_photo || null,
+      updated_at: kyc.updated_at
+    };
+
+    return res.json({ kyc: response });
+  } catch (err) {
+    console.error('getKycStatus error:', err);
     return res.status(500).json({ error: 'internal_server_error', detail: err.message });
   }
 }
@@ -306,11 +349,22 @@ async function updateProfile(req, res) {
   }
 }
 
+async function getRecentBookings(req, res) {
+  const customerId = Number(req.params.id);
+  if (!customerId) return res.status(400).json({ error: 'invalid_id' });
+
+  // TEMP: until bookings table exists
+  return res.json({ bookings: [] });
+}
+
+
 // Export controllers
 module.exports = {
   signup,
   login,
   getProfile,
   uploadKyc,
-  updateProfile
+  updateProfile,
+  getKycStatus,
+  getRecentBookings,
 };

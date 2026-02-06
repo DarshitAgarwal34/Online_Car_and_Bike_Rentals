@@ -5,10 +5,11 @@
 const express2 = require('express');
 const router2 = express2.Router();
 const vehicleController = require('../controllers/vehicleController');
+const upload = require('../middlewares/upload');
 
 
 // POST /api/vehicles
-router2.post('/', vehicleController.createVehicleHandler);
+router2.post('/', upload.single('photo'), vehicleController.createVehicleHandler);
 
 // GET /api/vehicles  -> list all vehicles
 router2.get('/', vehicleController.getAllVehiclesHandler);
@@ -27,6 +28,9 @@ router2.get('/:id', vehicleController.getVehicleHandler);
 
 // PUT /api/vehicles/:id
 router2.put('/:id', vehicleController.updateVehicleHandler);
+
+// DELETE /api/vehicles/:id
+router2.delete('/:id', vehicleController.deleteVehicleHandler);
 
 
 // POST /api/vehicles/:id/photos

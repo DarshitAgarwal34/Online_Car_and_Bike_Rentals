@@ -5,8 +5,9 @@
 // - Clean UI that matches Login (with visible text fix)
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import Logo from '../components/Logo';
 
 // compute age safely from a yyyy-mm-dd string
 function computeAgeFromDOB(dobStr) {
@@ -23,6 +24,9 @@ function computeAgeFromDOB(dobStr) {
 export default function Signup() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const nextParam = params.get('next') || null;
 
   const [role, setRole] = useState('customer'); // customer | owner
   const [name, setName] = useState('');
@@ -31,6 +35,7 @@ export default function Signup() {
   const [dob, setDob] = useState('');
   const [gender, setGender] = useState('');
   const [password, setPassword] = useState('');
+  const [city, setCity] = useState('');
   const [profileFile, setProfileFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -63,6 +68,7 @@ export default function Signup() {
       form.append('dob', dob);
       form.append('gender', gender);
       form.append('password', password);
+      if (role === 'owner' && city) form.append('city', city);
       if (profileFile) form.append('profile_picture', profileFile);
 
       const endpoint = role === 'owner' ? '/api/owners/signup' : '/api/customers/signup';
@@ -90,7 +96,11 @@ export default function Signup() {
       }
 
       // Otherwise go to login with success
-      navigate('/login', { replace: true });
+      if (nextParam && nextParam.startsWith('/')) {
+        navigate(`/login?next=${encodeURIComponent(nextParam)}`, { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
     } catch (err) {
       console.error('signup error', err);
       setError(err.message || 'Signup failed');
@@ -113,14 +123,14 @@ export default function Signup() {
           >
             <div className="md:hidden w-full flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center font-bold">RR</div>
+                <img src="/Logo.png" alt="RentRoam" className="w-9 h-9 rounded-md object-cover" />
                 <div className="text-lg font-bold">RentRoam</div>
               </div>
               <div className="text-white/90 text-sm font-medium">Sign up</div>
             </div>
 
             <div className="hidden md:flex md:flex-col md:items-start md:justify-center">
-              <div className="w-16 h-16 rounded-md bg-white/12 flex items-center justify-center font-bold">RR</div>
+              <img src="/Logo.png" alt="RentRoam" className="w-9 h-9 rounded-md object-cover" />
               <h3 className="mt-4 text-2xl md:text-3xl font-extrabold">Create your account</h3>
               <p className="mt-2 text-sm md:text-base text-white/90 max-w-xs">
                 Join RentRoam as a customer or owner. Customers must complete KYC before booking.
@@ -132,8 +142,7 @@ export default function Signup() {
           <div className="p-6 md:p-10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                {/* 1. FIXED: Changed text-white to text-gray-900 for logo */}
-                <div className="w-10 h-10 rounded-md bg-rr-orange text-gray-900 flex items-center justify-center font-bold">RR</div>
+                <img src="/Logo.png" alt="RentRoam" className="w-9 h-9 rounded-md object-cover" />
                 <div>
                   <h2 className="text-xl font-semibold text-rr-black">Create account</h2>
                   <div className="text-sm text-gray-500">Sign up as customer or owner</div>
@@ -182,20 +191,32 @@ export default function Signup() {
                   <label className="block text-sm font-medium text-gray-700">DOB</label>
                   <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rr-orange transition" />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Gender</label>
-                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rr-orange transition">
-                    <option value="">Prefer not to say</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Age</label>
-                  <input readOnly value={computeAgeFromDOB(dob)} className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-100 bg-gray-50" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Gender</label>
+                <select value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rr-orange transition">
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Age</label>
+                <input readOnly value={computeAgeFromDOB(dob)} className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-100 bg-gray-50" />
+              </div>
+            </div>
+
+            {role === 'owner' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">City</label>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Owner city (e.g. Kota)"
+                  className="mt-1 block w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rr-orange transition"
+                />
+              </div>
+            )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Profile picture (optional)</label>
@@ -211,7 +232,7 @@ export default function Signup() {
 
               <div className="flex items-center gap-3">
                 {/* 4. FIXED: Changed text-white to text-gray-900 */}
-                <button type="submit" disabled={loading} className="px-4 py-2 rounded-lg bg-rr-orange text-gray-900 font-semibold hover:bg-rr-orange-dark">
+                <button type="submit" disabled={loading} className="btn-rr w-full sm:w-auto">
                   {loading ? 'Creating...' : 'Create account'}
                 </button>
 

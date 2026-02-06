@@ -17,6 +17,8 @@ const cors = require('cors');
 // Create an Express application instance
 const app = express();
 
+const path = require('path');
+
 // Use JSON middleware so Express can parse JSON request bodies
 app.use(express.json());
 
@@ -34,6 +36,9 @@ app.use('/api/owners', ownerRoutes);
 
 const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/admins', adminRoutes);
+
+// serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
 // A simple health-check route at the root path to verify the server runs
 app.get('/', (req, res) => {
