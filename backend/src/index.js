@@ -47,7 +47,7 @@ app.get('/', (req, res) => {
 });
 
 // Start the server on the port provided by environment or fallback to 5000
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   // Console log so you see server startup output during development
   console.log(`Server running on http://localhost:${PORT}`);
