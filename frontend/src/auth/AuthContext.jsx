@@ -15,6 +15,15 @@ function inferRoleFromEndpoint(endpoint) {
   return 'customer';
 }
 
+function normalizeUser(user, endpoint) {
+  if (!user) return null;
+  return {
+    ...user,
+    id: user.id ?? user.sub ?? null,
+    role: user.role || inferRoleFromEndpoint(endpoint),
+  };
+}
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -45,7 +54,7 @@ export function AuthProvider({ children }) {
     // if caller passed token+user, accept that
     if (t && u) {
       setToken(t);
-      setUser(u);
+      setUser(normalizeUser(u, endpoint));
       return { ok: true };
     }
 
@@ -61,14 +70,14 @@ export function AuthProvider({ children }) {
 
       // adapt to different backend shapes
       const tokenFromServer = resp.token || resp.accessToken || resp.data?.token;
-      let userFromServer = resp.user || resp.data?.user || null;
+      let userFromServer = normalizeUser(resp.user || resp.data?.user || null, endpoint);
 
       // If backend didn't return user object, make a minimal user object
       if (!userFromServer) {
-        userFromServer = {
+        userFromServer = normalizeUser({
           email: credentials.email || credentials.phone || null,
           role: credentials.role || inferRoleFromEndpoint(endpoint) // fallback
-        };
+        }, endpoint);
       }
 
       // If role still missing, try infer from endpoint (e.g. '/api/owners/login')
@@ -99,8 +108,13 @@ export function AuthProvider({ children }) {
     return token;
   }
 
+  function loginWithToken(nextToken, nextUser) {
+    setToken(nextToken);
+    setUser(normalizeUser(nextUser));
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, getToken, setUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginWithToken, logout, getToken, setUser }}>
       {children}
     </AuthContext.Provider>
   );

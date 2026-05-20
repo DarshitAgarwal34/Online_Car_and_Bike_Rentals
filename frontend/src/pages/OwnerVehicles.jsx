@@ -5,8 +5,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../auth/api";
+import { getBookedVehicleIds } from "../utils/bookingStore";
 
 function VehicleCard({ v, onToggle, onRemove }) {
+  const isLockedByBooking = v.is_locked_by_booking;
+
   return (
     <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
       <div className="h-40 bg-gray-100 overflow-hidden">
@@ -37,11 +40,12 @@ function VehicleCard({ v, onToggle, onRemove }) {
             <button
               type="button"
               onClick={() => onToggle(v)}
+              disabled={isLockedByBooking}
               className={`text-xs px-2 py-1 rounded ${
                 v.is_available ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-              }`}
+              } ${isLockedByBooking ? "cursor-not-allowed opacity-70" : ""}`}
             >
-              {v.is_available ? "Available" : "Unavailable"}
+              {isLockedByBooking ? "Booked" : v.is_available ? "Available" : "Unavailable"}
             </button>
             <button
               type="button"
@@ -64,7 +68,6 @@ export default function OwnerVehicles() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
-  const [removingId, setRemovingId] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -74,7 +77,16 @@ export default function OwnerVehicles() {
       try {
         const res = await apiFetch(`/api/owners/${user.id}/vehicles`);
         const list = res?.vehicles || res || [];
-        setVehicles(Array.isArray(list) ? list : []);
+        const bookedIds = getBookedVehicleIds();
+        setVehicles(
+          Array.isArray(list)
+            ? list.map((vehicle) => ({
+                ...vehicle,
+                is_locked_by_booking: bookedIds.has(Number(vehicle.id)),
+                is_available: bookedIds.has(Number(vehicle.id)) ? false : vehicle.is_available,
+              }))
+            : []
+        );
       } catch (err) {
         setError(err.message || "Failed to load vehicles");
       } finally {
@@ -84,22 +96,39 @@ export default function OwnerVehicles() {
     load();
   }, [user?.id]);
 
+  useEffect(() => {
+    function syncAvailability() {
+      const bookedIds = getBookedVehicleIds();
+      setVehicles((prev) =>
+        prev.map((vehicle) => ({
+          ...vehicle,
+          is_locked_by_booking: bookedIds.has(Number(vehicle.id)),
+          is_available: bookedIds.has(Number(vehicle.id)) ? false : vehicle.is_available,
+        }))
+      );
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncAvailability);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncAvailability);
+  }, []);
+
   async function removeVehicle(v) {
     if (!v?.id) return;
     if (!confirm("Remove this vehicle?")) return;
-    setRemovingId(v.id);
     try {
       await apiFetch(`/api/vehicles/${v.id}`, { method: "DELETE" });
       setVehicles((prev) => prev.filter((item) => item.id !== v.id));
     } catch (err) {
       setError(err.message || "Failed to remove vehicle");
-    } finally {
-      setRemovingId(null);
     }
   }
 
   async function toggleAvailability(v) {
     if (!v?.id) return;
+    if (v.is_locked_by_booking) {
+      setError("This vehicle is already booked and cannot be marked available right now.");
+      return;
+    }
     setUpdatingId(v.id);
     try {
       await apiFetch(`/api/vehicles/${v.id}/availability`, {

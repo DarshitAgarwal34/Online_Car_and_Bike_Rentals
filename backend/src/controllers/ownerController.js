@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken'); // for JWT tokens
 const { pool } = require('../db/connection'); // mysql2 pool
 const fs = require('fs'); // file operations (cleanup)
 const path = require('path'); // path helpers
+const bookingModel = require("../models/bookingModel");
 
 // Load JWT config from environment or use dev defaults
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -33,6 +34,42 @@ async function hashPassword(password) {
 // Helper: compare plain password with hashed
 async function comparePassword(plain, hash) {
   return bcrypt.compare(plain, hash);
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { email, dob, newPassword } = req.body || {};
+
+    if (!email || !dob || !newPassword) {
+      return res.status(400).json({
+        error: 'missing_required_fields',
+        message: 'email, dob and newPassword are required',
+      });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id FROM owners WHERE LOWER(email) = LOWER(?) AND DATE(dob) = DATE(?) LIMIT 1',
+      [email, dob]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: 'Email and DOB do not match any owner account',
+      });
+    }
+
+    const hashed = await hashPassword(newPassword);
+    await pool.query(
+      'UPDATE owners SET password = ?, updated_at = NOW() WHERE id = ?',
+      [hashed, rows[0].id]
+    );
+
+    return res.json({ message: 'password_updated' });
+  } catch (err) {
+    console.error('owner resetPassword error:', err);
+    return res.status(500).json({ error: 'internal_server_error', detail: err.message });
+  }
 }
 
 /**
@@ -324,7 +361,9 @@ async function getBookings(req, res) {
   try {
     const ownerId = Number(req.params.ownerId || (req.user && req.user.id));
     if (!ownerId) return res.status(400).json({ error: 'invalid_owner_id' });
-    return res.json({ bookings: [] });
+    const limit = Number(req.query.limit || 50);
+    const bookings = await bookingModel.listOwnerBookings(ownerId, limit);
+    return res.json({ bookings });
   } catch (err) {
     console.error('owner getBookings error:', err);
     return res.status(500).json({ error: 'internal_server_error', detail: err.message });
@@ -335,6 +374,7 @@ async function getBookings(req, res) {
 module.exports = {
   signup,
   login,
+  resetPassword,
   getProfile,
   updateProfile,
   getVehicles,

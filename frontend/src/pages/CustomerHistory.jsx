@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../auth/api";
+import { getLocalBookings, mergeBookings } from "../utils/bookingStore";
 
 function BookingRow({ b }) {
   return (
@@ -46,14 +47,34 @@ export default function CustomerHistory() {
       try {
         const data = await apiFetch(`/api/customers/${user.id}/bookings?limit=50`);
         const list = data?.bookings || data || [];
-        setBookings(Array.isArray(list) ? list : []);
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.customer_id) === String(user.id)
+        );
+        setBookings(mergeBookings(Array.isArray(list) ? list : [], localBookings));
       } catch (err) {
-        setError(err.message || "Failed to load bookings");
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.customer_id) === String(user.id)
+        );
+        setBookings(localBookings);
+        setError(localBookings.length ? "" : err.message || "Failed to load bookings");
       } finally {
         setLoading(false);
       }
     }
     load();
+  }, [user?.id]);
+
+  useEffect(() => {
+    function syncBookings() {
+      if (!user?.id) return;
+      const localBookings = getLocalBookings().filter(
+        (booking) => String(booking.customer_id) === String(user.id)
+      );
+      setBookings((prev) => mergeBookings(prev, localBookings));
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncBookings);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncBookings);
   }, [user?.id]);
 
   return (

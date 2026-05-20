@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { apiUrl } from '../services/apiBase';
 
 export default function OwnerLogin() {
   const [email, setEmail] = useState('');
@@ -13,7 +14,7 @@ export default function OwnerLogin() {
   async function submit(e) {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/api/owners/login', { email, password });
+      const res = await axios.post(apiUrl('/api/owners/login'), { email, password });
       const { token, user } = res.data;
       loginWithToken(token, user);
       nav('/owner');

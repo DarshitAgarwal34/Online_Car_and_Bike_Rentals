@@ -1,6 +1,6 @@
 // File: frontend/src/pages/CustomerKYC.jsx
 // Purpose: Customer KYC page for RentRoam
-// - Lets customer upload Aadhar number + photo and Driving License number + photo
+// - Lets customer submit Aadhar and Driving License numbers, with optional photo uploads
 // - Shows KYC status: "Not verified" (red), "Submitted / One-step verified" (orange), "Approved by admin" (green)
 // - Uses fetch for multipart/form-data POST to /api/customers/:id/kyc
 // - Uses GET /api/customers/:id/kyc to read current status
@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import { apiUrl } from '../services/apiBase';
 
 // local placeholder image (the uploaded file you provided previously)
 // developer note: keep this path or move logo to public/ and update LOGO_SRC in Logo.jsx
@@ -58,7 +59,7 @@ export default function CustomerKYC() {
     setError('');
     try {
       // backend expected endpoint: GET /api/customers/:id/kyc
-      const res = await fetch(`/api/customers/${user.id}/kyc`);
+      const res = await fetch(apiUrl(`/api/customers/${user.id}/kyc`));
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -114,13 +115,9 @@ export default function CustomerKYC() {
     e?.preventDefault();
     setError('');
     setSuccess('');
-    // basic validation: request both numbers and both files (you can allow partial, but spec says ask both)
+    // basic validation: require document numbers, but photo uploads are optional
     if (!aadharNumber || !licenseNumber) {
       setError('Please provide both Aadhar and Driving License numbers.');
-      return;
-    }
-    if (!aadharFile || !licenseFile) {
-      setError('Please upload both Aadhar and Driving License images.');
       return;
     }
     if (!user?.id) {
@@ -134,11 +131,11 @@ export default function CustomerKYC() {
       const form = new FormData();
       form.append('aadhar_number', aadharNumber);
       form.append('license_number', licenseNumber);
-      form.append('aadhar_file', aadharFile);
-      form.append('license_file', licenseFile);
+      if (aadharFile) form.append('aadhar_file', aadharFile);
+      if (licenseFile) form.append('license_file', licenseFile);
 
       // POST to backend endpoint
-      const res = await fetch(`/api/customers/${user.id}/kyc`, {
+      const res = await fetch(apiUrl(`/api/customers/${user.id}/kyc`), {
         method: 'POST',
         body: form
         // Note: do not set Content-Type for multipart; browser sets boundary
@@ -197,7 +194,7 @@ export default function CustomerKYC() {
           <div>
             <div className="text-sm text-gray-600">Two-step verification</div>
             <div className="text-sm text-gray-700">
-              Upload Aadhar & Driving License. After you upload, your account becomes <strong>Submitted</strong> and you can book.
+              Submit your Aadhar and Driving License numbers. Photo uploads are optional. After submission, your account becomes <strong>Submitted</strong> and you can book.
               Admin approval moves the account to <strong>Verified</strong>.
             </div>
           </div>
@@ -229,7 +226,7 @@ export default function CustomerKYC() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Aadhar Photo</label>
+            <label className="block text-sm font-medium text-gray-700">Aadhar Photo <span className="text-gray-400">(optional)</span></label>
             <div className="flex items-center gap-3">
               <label className="w-36 h-24 rounded-md border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-500 cursor-pointer overflow-hidden">
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => setAadharFile(e.target.files?.[0] || null)} />
@@ -268,7 +265,7 @@ export default function CustomerKYC() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">License Photo</label>
+            <label className="block text-sm font-medium text-gray-700">License Photo <span className="text-gray-400">(optional)</span></label>
             <div className="flex items-center gap-3">
               <label className="w-36 h-24 rounded-md border border-dashed border-gray-300 flex items-center justify-center text-sm text-gray-500 cursor-pointer overflow-hidden">
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => setLicenseFile(e.target.files?.[0] || null)} />

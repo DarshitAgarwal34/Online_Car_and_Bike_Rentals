@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiFetch } from '../auth/api';
 import { useAuth } from '../auth/AuthContext';
+import { getBookedVehicleIds } from "../utils/bookingStore";
 
 function VehicleCard({ v, onBook }) {
   // Single card UI for vehicle
@@ -126,7 +127,8 @@ export default function VehiclesPage() {
       else if (Array.isArray(data.data)) arr = data.data;
       else arr = [];
 
-      setVehicles(arr);
+      const bookedIds = getBookedVehicleIds();
+      setVehicles(arr.filter((vehicle) => !bookedIds.has(Number(vehicle.id))));
     } catch (err) {
       console.error('loadVehicles error', err);
       setError(err.message || 'Failed to load vehicles');
@@ -145,6 +147,15 @@ export default function VehiclesPage() {
     return () => window.removeEventListener('resize', updatePerPageByWidth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]); // reload whenever query changes
+
+  useEffect(() => {
+    function syncAvailability() {
+      loadVehicles();
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncAvailability);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncAvailability);
+  }, [location.search]);
 
   // derived: filtered count and current page slice (client-side slicing for pagination)
   const totalItems = vehicles.length;

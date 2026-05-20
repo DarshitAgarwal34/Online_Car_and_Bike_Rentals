@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../auth/api";
+import { createLocalBooking, isVehicleBooked } from "../utils/bookingStore";
 
 function daysBetween(a, b) {
   try {
@@ -37,6 +38,7 @@ export default function BookVehicle() {
   const [pickupCity, setPickupCity] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const isCustomer = user?.role === "customer";
@@ -106,10 +108,82 @@ export default function BookVehicle() {
   const days = useMemo(() => daysBetween(pickupDate, dropDate), [pickupDate, dropDate]);
   const dailyRate = Number(vehicle?.daily_rate || vehicle?.price || 0);
   const total = useMemo(() => (dailyRate || 0) * days, [dailyRate, days]);
+  const vehicleAlreadyBooked = useMemo(() => isVehicleBooked(id), [id]);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e?.preventDefault();
-    setSubmitted(true);
+
+    try {
+      if (!vehicle?.id) {
+        setError("Vehicle details are missing.");
+        return;
+      }
+
+      if (!pickupDate || !dropDate || !pickupCity.trim()) {
+        setError("Pickup date, drop date, and pickup city are required.");
+        return;
+      }
+
+      if (new Date(dropDate) < new Date(pickupDate)) {
+        setError("Drop date must be the same as or after the pickup date.");
+        return;
+      }
+
+      if (isVehicleBooked(vehicle.id)) {
+        setError("This vehicle has already been booked and is no longer available.");
+        return;
+      }
+
+      setSubmitting(true);
+      setError("");
+
+      const payload = {
+        vehicle_id: vehicle.id,
+        customer_id: user?.id,
+        owner_id: vehicle.owner_id || vehicle.owner?.id || null,
+        start_date: pickupDate,
+        end_date: dropDate,
+        pickup_city: pickupCity.trim(),
+        payment_method: paymentMethod,
+        notes: notes.trim(),
+        total_price: total,
+        status: "confirmed",
+      };
+
+      const response = await apiFetch(`/api/customers/${user?.id}/bookings`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const bookingFromServer = response?.booking || response?.data?.booking || response;
+
+      createLocalBooking({
+        booking: {
+          ...payload,
+          ...bookingFromServer,
+          vehicle_id: bookingFromServer?.vehicle_id || payload.vehicle_id,
+          customer_id: bookingFromServer?.customer_id || payload.customer_id,
+          owner_id: bookingFromServer?.owner_id || payload.owner_id,
+          total_price: bookingFromServer?.total_price ?? payload.total_price,
+        },
+        vehicle,
+        customer: {
+          id: user?.id,
+          name: user?.name || profile?.name || "Customer",
+          email: user?.email || profile?.email || "",
+        },
+        owner: {
+          id: vehicle.owner_id || vehicle.owner?.id || null,
+          name: vehicle.owner_name || vehicle.owner?.name || "Owner",
+          email: vehicle.owner_email || vehicle.owner?.email || "",
+        },
+      });
+
+      setSubmitted(true);
+      setSubmitting(false);
+    } catch (err) {
+      setError(err.message || "Booking failed.");
+      setSubmitting(false);
+    }
   }
 
   if (!user) {
@@ -193,6 +267,12 @@ export default function BookVehicle() {
 
           {/* Booking form */}
           <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-5 shadow-sm lg:col-span-2 space-y-4">
+            {vehicleAlreadyBooked && !submitted && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                This vehicle has already been booked and is currently unavailable.
+              </div>
+            )}
+
             {!isVerified && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
                 Your KYC is not verified yet. Please complete KYC before booking.
@@ -276,14 +356,18 @@ export default function BookVehicle() {
                 <div className="text-xl font-bold text-rr-black">₹{total}</div>
                 <div className="text-xs text-gray-500">{days} day(s)</div>
               </div>
-              <button type="submit" className="btn-rr" disabled={!isVerified || loadingProfile}>
-                {submitted ? "Booking submitted" : "Confirm booking"}
+              <button
+                type="submit"
+                className="btn-rr"
+                disabled={!isVerified || loadingProfile || submitting || vehicleAlreadyBooked}
+              >
+                {submitted ? "Booking submitted" : submitting ? "Submitting..." : "Confirm booking"}
               </button>
             </div>
 
             {submitted && (
               <div className="text-sm text-green-600">
-                Booking request submitted. You will see it in your dashboard once confirmed.
+                Booking confirmed. It is now visible in customer and owner booking history, and this vehicle is no longer available for booking.
               </div>
             )}
           </form>

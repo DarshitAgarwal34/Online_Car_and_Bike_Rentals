@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../auth/api";
+import { getLocalBookings, mergeBookings } from "../utils/bookingStore";
 
 export default function OwnerBookings() {
   const { user } = useAuth();
@@ -19,14 +20,34 @@ export default function OwnerBookings() {
       try {
         const res = await apiFetch(`/api/owners/${user.id}/bookings`);
         const list = res?.bookings || res || [];
-        setBookings(Array.isArray(list) ? list : []);
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.owner_id) === String(user.id)
+        );
+        setBookings(mergeBookings(Array.isArray(list) ? list : [], localBookings));
       } catch (err) {
-        setError(err.message || "Failed to load bookings");
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.owner_id) === String(user.id)
+        );
+        setBookings(localBookings);
+        setError(localBookings.length ? "" : err.message || "Failed to load bookings");
       } finally {
         setLoading(false);
       }
     }
     load();
+  }, [user?.id]);
+
+  useEffect(() => {
+    function syncBookings() {
+      if (!user?.id) return;
+      const localBookings = getLocalBookings().filter(
+        (booking) => String(booking.owner_id) === String(user.id)
+      );
+      setBookings((prev) => mergeBookings(prev, localBookings));
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncBookings);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncBookings);
   }, [user?.id]);
 
   return (
@@ -48,10 +69,13 @@ export default function OwnerBookings() {
               {bookings.map((b) => (
                 <div key={b.id} className="border rounded-lg p-3">
                   <div className="font-semibold text-rr-black">
-                    {b.vehicle_make} {b.vehicle_model}
+                    {b.vehicle_make || b.vehicle?.make} {b.vehicle_model || b.vehicle?.model}
                   </div>
                   <div className="text-sm text-gray-500">
                     {b.start_date} - {b.end_date}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Customer: {b.customer?.name || b.customer_name || "Customer"} {b.customer?.email || b.customer_email ? `(${b.customer?.email || b.customer_email})` : ""}
                   </div>
                 </div>
               ))}

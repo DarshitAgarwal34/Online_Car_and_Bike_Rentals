@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../auth/api';
+import { getBookedVehicleIds } from "../utils/bookingStore";
 
 function VehicleCard({ v, onBook }) {
   return (
@@ -89,11 +90,13 @@ export default function Home() {
         if (!Array.isArray(data)) {
           // Backend might return { vehicles: [...] } or direct array; handle both
           const arr = Array.isArray(data.vehicles) ? data.vehicles : (Array.isArray(data.data) ? data.data : []);
-          // MODIFIED: Slice the array to 6 if it has length, otherwise use fallback
-          setVehicles(arr.length ? arr.slice(0, 6) : fallback);
+          const bookedIds = getBookedVehicleIds();
+          const filtered = arr.filter((vehicle) => !bookedIds.has(Number(vehicle.id)));
+          setVehicles(filtered.length ? filtered.slice(0, 6) : fallback);
         } else {
-          // MODIFIED: Slice the array to 6 if it has length, otherwise use fallback
-          setVehicles(data.length ? data.slice(0, 6) : fallback);
+          const bookedIds = getBookedVehicleIds();
+          const filtered = data.filter((vehicle) => !bookedIds.has(Number(vehicle.id)));
+          setVehicles(filtered.length ? filtered.slice(0, 6) : fallback);
         }
       } catch (err) {
         console.error('Failed to fetch vehicles', err);
@@ -109,6 +112,18 @@ export default function Home() {
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // only on mount; adjust deps if you want live filter fetches
+
+  useEffect(() => {
+    function syncAvailability() {
+      setVehicles((prev) => {
+        const bookedIds = getBookedVehicleIds();
+        return prev.filter((vehicle) => !bookedIds.has(Number(vehicle.id)));
+      });
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncAvailability);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncAvailability);
+  }, []);
 
   function handleSearch(e) {
     e && e.preventDefault();
@@ -126,9 +141,9 @@ export default function Home() {
 
         const path = '/api/vehicles' + (q.toString() ? `?${q.toString()}` : '');
         const data = await apiFetch(path);
-        if (Array.isArray(data)) setVehicles(data);
-        else if (Array.isArray(data.vehicles)) setVehicles(data.vehicles);
-        else setVehicles(fallback);
+        const list = Array.isArray(data) ? data : Array.isArray(data.vehicles) ? data.vehicles : fallback;
+        const bookedIds = getBookedVehicleIds();
+        setVehicles(list.filter((vehicle) => !bookedIds.has(Number(vehicle.id))));
         const el = document.getElementById('featured-listings');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err) {

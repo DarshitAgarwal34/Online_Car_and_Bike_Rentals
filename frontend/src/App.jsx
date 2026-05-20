@@ -3,16 +3,17 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Browse from "./pages/Browse";
-import Login from "./pages/Login";
+import CustomerLogin from "./pages/CustomerLogin";
 import Signup from "./pages/Signup";
 import SignupPassword from "./pages/SignupPassword";
 import CustomerKYC from "./pages/CustomerKYC";
-import OwnerLogin from "./pages/OwnerLogin";
+import OwnerPortalLogin from "./pages/OwnerPortalLogin";
+import ForgotPassword from "./pages/ForgotPassword";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import VehicleDetails from "./pages/VehicleDetails";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import CustomerProfile from "./pages/CustomerProfile";
-import AdminLogin from "./pages/AdminLogin";
+import RouteAdminLogin from "./pages/RouteAdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminOwners from "./pages/admin/AdminOwners";
@@ -48,11 +49,13 @@ export default function App() {
           <Route path="need-help" element={<NeedHelp />} />
 
           {/* Auth routes */}
-          <Route path="login" element={<Login />} />
+          <Route path="login" element={<CustomerLogin />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
           <Route path="signup" element={<Signup />} />
           <Route path="signup/password" element={<SignupPassword />} />
           <Route path="signup/kyc" element={<CustomerKYC />} />
-          <Route path="owner/login" element={<OwnerLogin />} />
+          <Route path="owner/login" element={<OwnerPortalLogin />} />
+          <Route path="admin/login" element={<RouteAdminLogin />} />
 
           {/* Customer */}
           <Route

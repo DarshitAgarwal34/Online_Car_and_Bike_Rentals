@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
+import { apiUrl } from '../services/apiBase';
 
 // compute age safely from a yyyy-mm-dd string
 function computeAgeFromDOB(dobStr) {
@@ -72,7 +73,7 @@ export default function Signup() {
       if (profileFile) form.append('profile_picture', profileFile);
 
       const endpoint = role === 'owner' ? '/api/owners/signup' : '/api/customers/signup';
-      const res = await fetch(endpoint, { method: 'POST', body: form });
+      const res = await fetch(apiUrl(endpoint), { method: 'POST', body: form });
 
       let data = null;
       try { data = await res.json(); } catch (err) { /* ignore JSON parse error */ }

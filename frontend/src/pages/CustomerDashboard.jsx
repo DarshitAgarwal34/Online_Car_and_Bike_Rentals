@@ -11,6 +11,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../auth/api";
+import { getBookedVehicleIds, getLocalBookings, mergeBookings } from "../utils/bookingStore";
 
 // local logo you uploaded earlier — keep this path or move file to public/ and update path
 const LOGO_SRC = "/Logo.png";
@@ -221,7 +222,8 @@ export default function CustomerDashboard() {
         : Array.isArray(data?.vehicles)
         ? data.vehicles
         : [];
-      setVehicles(list);
+      const bookedIds = getBookedVehicleIds();
+      setVehicles(list.filter((vehicle) => !bookedIds.has(Number(vehicle.id))));
     } catch (err) {
       console.error("vehicles load failed", err);
       setError("Failed to load vehicles");
@@ -236,9 +238,16 @@ export default function CustomerDashboard() {
     try {
       const data = await apiFetch(`/api/customers/${user.id}/bookings?limit=5`);
       const list = data?.bookings || data || [];
-      setBookings(list);
+      const localBookings = getLocalBookings().filter(
+        (booking) => String(booking.customer_id) === String(user.id)
+      );
+      setBookings(mergeBookings(Array.isArray(list) ? list : [], localBookings).slice(0, 5));
     } catch (err) {
       console.error("bookings load failed", err);
+      const localBookings = getLocalBookings().filter(
+        (booking) => String(booking.customer_id) === String(user.id)
+      );
+      setBookings(localBookings.slice(0, 5));
     }
   }
 
@@ -249,6 +258,16 @@ export default function CustomerDashboard() {
     loadRecentBookings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    function syncBookingState() {
+      fetchVehicles({ city: city || undefined, type: vehicleType, pickup, drop });
+      loadRecentBookings();
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncBookingState);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncBookingState);
+  }, [city, vehicleType, pickup, drop, user?.id]);
 
   // search handler bound to the search panel
   function handleSearch(e) {
@@ -276,7 +295,7 @@ export default function CustomerDashboard() {
       navigate("/signup/kyc");
       return;
     }
-    navigate(`/customer/book`);
+    navigate(`/book/${v.id}`);
   }
 
   // memoized fallback UI for empty state
@@ -329,6 +348,9 @@ export default function CustomerDashboard() {
         kycVerified={Boolean(profile?.kyc_verified)}
         onVerifyClick={() => navigate("/signup/kyc")}
       />
+
+      {loadingProfile && <div className="text-sm text-gray-500">Loading profile...</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
 
       {/* Search panel */}
       <form

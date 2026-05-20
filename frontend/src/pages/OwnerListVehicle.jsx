@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { apiUrl } from "../services/apiBase";
 
 const CONDITIONS = [
   "new",
@@ -81,7 +82,7 @@ export default function OwnerListVehicle() {
       if (!photoFile && photoUrl) form.append("photo_url", photoUrl);
 
       const token = localStorage.getItem("rentroam_token");
-      const res = await fetch("/api/vehicles", {
+      const res = await fetch(apiUrl("/api/vehicles"), {
         method: "POST",
         body: form,
         headers: token ? { Authorization: `Bearer ${token}` } : undefined

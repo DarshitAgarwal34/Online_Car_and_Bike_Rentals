@@ -4,9 +4,13 @@ import { useAuth } from './AuthContext';
 
 export default function ProtectedRoute({ children, role }) {
   const { token, user } = useAuth();
+  const loginPath =
+    role === 'owner' ? '/owner/login' :
+    role === 'admin' ? '/admin/login' :
+    '/login';
 
   // not authenticated
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) return <Navigate to={loginPath} replace />;
 
   // if role required and user missing or role mismatch, redirect
   if (role) {

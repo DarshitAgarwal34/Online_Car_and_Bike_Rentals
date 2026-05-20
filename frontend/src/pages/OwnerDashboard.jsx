@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../auth/api';
 import { useNavigate } from 'react-router-dom';
+import { getLocalBookings, mergeBookings } from "../utils/bookingStore";
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
@@ -45,15 +46,34 @@ export default function OwnerDashboard() {
       try {
         const res = await apiFetch(`/api/owners/${user.id}/bookings`);
         const list = res?.bookings || res || [];
-        setRecentBookings(Array.isArray(list) ? list.slice(0, 5) : []);
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.owner_id) === String(user.id)
+        );
+        setRecentBookings(mergeBookings(Array.isArray(list) ? list : [], localBookings).slice(0, 5));
       } catch (err) {
         console.error('owner bookings load failed', err);
-        setRecentBookings([]);
+        const localBookings = getLocalBookings().filter(
+          (booking) => String(booking.owner_id) === String(user.id)
+        );
+        setRecentBookings(localBookings.slice(0, 5));
       } finally {
         setLoadingBookings(false);
       }
     }
     loadBookings();
+  }, [user?.id]);
+
+  useEffect(() => {
+    function syncOwnerBookings() {
+      if (!user?.id) return;
+      const localBookings = getLocalBookings().filter(
+        (booking) => String(booking.owner_id) === String(user.id)
+      );
+      setRecentBookings((prev) => mergeBookings(prev, localBookings).slice(0, 5));
+    }
+
+    window.addEventListener("rentroam:bookings-changed", syncOwnerBookings);
+    return () => window.removeEventListener("rentroam:bookings-changed", syncOwnerBookings);
   }, [user?.id]);
 
   return (
@@ -95,7 +115,7 @@ export default function OwnerDashboard() {
             recentBookings.map((b) => (
               <div key={b.id} className="text-sm border rounded-lg p-2">
                 <div className="font-semibold text-rr-black">
-                  {b.vehicle_make} {b.vehicle_model}
+                  {b.vehicle_make || b.vehicle?.make} {b.vehicle_model || b.vehicle?.model}
                 </div>
                 <div className="text-xs text-gray-500">
                   {b.start_date} - {b.end_date}

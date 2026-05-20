@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../auth/AuthContext';
+import { apiUrl } from '../services/apiBase';
 
 export default function SignupPassword() {
   const [password, setPassword] = useState('');
@@ -23,7 +24,7 @@ export default function SignupPassword() {
     try {
       if (raw.role === 'owner') {
         // owner signup
-        const res = await axios.post('http://localhost:5000/api/owners/signup', {
+        const res = await axios.post(apiUrl('/api/owners/signup'), {
           name: raw.name,
           email: raw.email,
           password,
@@ -37,7 +38,7 @@ export default function SignupPassword() {
         nav('/owner'); // owner dashboard
       } else {
         // customer signup (without KYC yet)
-        const res = await axios.post('http://localhost:5000/api/customers/signup', {
+        const res = await axios.post(apiUrl('/api/customers/signup'), {
           name: raw.name,
           email: raw.email,
           password,

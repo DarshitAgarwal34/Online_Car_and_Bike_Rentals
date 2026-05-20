@@ -81,11 +81,11 @@ export default function Layout() {
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3 min-w-0">
-              <Link to={homeLink} className="flex items-center gap-3 shrink-0">
+              <Link to={homeLink} className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
                 <Logo size={42} />
-                <div className="hidden sm:block min-w-0">
-                  <div className="text-lg font-extrabold text-rr-black truncate">RentRoam</div>
-                  <div className="text-xs text-gray-500 truncate">Rent cars & bikes nearby</div>
+                <div className="min-w-0">
+                  <div className="text-base sm:text-lg font-extrabold text-rr-black truncate">RentRoam</div>
+                  <div className="hidden sm:block text-xs text-gray-500 truncate">Rent cars & bikes nearby</div>
                 </div>
               </Link>
             </div>
